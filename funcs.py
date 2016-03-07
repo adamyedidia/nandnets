@@ -7,9 +7,24 @@ from randominstancegen import randomInstanceGen, generateFullTruthTable, \
     generateRandomPartialTruthTable
 from memorymachine import MemoryMachine    
 from majoritarian import Majoritarian
+from funcsum import FuncSum, FuncSumClique
+from matfuncsum import MatFuncSum, MatFuncSumClique
+from pmassembler import PMAssembler
+import numpy as np
+import scipy.optimize as opt
 import math
 import random    
 import time
+import gzip
+import cPickle
+
+def product(l):
+    val = 1.0
+    
+    for i in l:
+        val *= i
+        
+    return val
 
 def allListsOfSizeX(x):
     if x == 0:
@@ -18,6 +33,39 @@ def allListsOfSizeX(x):
     else:
         oneLess = allListsOfSizeX(x-1)
         return [i + [0] for i in oneLess] + [i + [1] for i in oneLess]  
+        
+
+def convertToOneMinusOne(x):
+    if x == 0:
+        return -1.0
+        
+    return 1.0
+            
+
+def allSubsetsOfSize(x, numOnesLeft):
+    if numOnesLeft == 0:
+        return [[0]*x]
+        
+    elif numOnesLeft == x:
+        return [[1]*x]
+        
+    else: 
+        oneLessWithOne = allSubsetsOfSize(x-1, numOnesLeft-1)
+        oneLessWithZero = allSubsetsOfSize(x-1, numOnesLeft)
+        
+        return [i + [0] for i in oneLessWithZero] + [i + [1] for i in oneLessWithOne]
+
+def pand(inputs):
+    if 0.0 in inputs:
+        return 0.0
+        
+    return [1.0]
+    
+def por(inputs):
+    if 1.0 in inputs:
+        return 1.0
+
+    return [0.0]
 
 def allTuplesOfSizeX(x):
     if x == 0:
@@ -48,13 +96,20 @@ def makeOrthogonalSet(logSetSize):
             
         return returnList
 
-def generateRandomTruthTable(numInputs, numOutputs):
+def generateRandomTruthTable(numInputs, numOutputs, oneMinusOne=False, itsAllReal=False):
     trainingSet = []
     
     allInputs = allListsOfSizeX(numInputs)
     
     for i in allInputs:
-        trainingSet.append([i, [random.randint(0, 1) for _ in range(numOutputs)]])
+        if oneMinusOne:
+            trainingSet.append([i, [convertToOneMinusOne(random.randint(0, 1)) for _ in range(numOutputs)]])            
+        else:
+            if itsAllReal:
+                trainingSet.append([i, [random.random() for _ in range(numOutputs)]])
+            else:
+                trainingSet.append([i, [random.randint(0, 1) for _ in range(numOutputs)]])
+        
         
     return trainingSet
 
@@ -70,20 +125,8 @@ def nor(inputs):
         
     return 1.0       
     
-def pand(inputs):
-    if 0.0 in inputs:
-        return 0.0
-        
-    return 1.0
-    
-def por(inputs):
-    if 1.0 in inputs:
-        return 1.0
-
-    return 0.0
-    
 def xorList(inputs):
-    return (sum(inputs) % 2) == 0
+    return 1.0*((sum(inputs) % 2) == 0)
     
 def listMap(l, itemsToKeep):
     returnList = []
@@ -155,7 +198,6 @@ def nandDagFunctionMaker(numInputs, numInternals, numOutputs):
             paramIndex += numValuesSoFar
             output += [result]
                 
-#        print time.time()-t        
         return output    
     
     return nandDag        
@@ -288,9 +330,7 @@ def agreementSquareMaker(numInputs, threshold, pad=None):
         
         
     def agreementSquare(inputs, params):
-    
-#        print inputs, params[:numInputs], pad
-    
+        
         assert len(inputs) == numInputs
         assert len(params) == 2*numInputs
     
@@ -298,15 +338,9 @@ def agreementSquareMaker(numInputs, threshold, pad=None):
     
         inputsToFinal = [neutralAgreement(inputs, bitwiseXor(bit, params[:numInputs]), i) for i, bit in enumerate(pad)]
         
-#        print [(inputs, bitwiseXor(bit, params[:numInputs]), i) for i, bit in enumerate(pad)] 
-#        print inputsToFinal
-        
-#        print inputsToFinal, params[numInputs:]
     
         finalAgreement = agreementMaker(numInputs, threshold, True)
-    
-#        print finalAgreement(inputsToFinal, params[numInputs:])
-    
+        
         return finalAgreement(inputsToFinal, params[numInputs:])
         
     return agreementSquare
@@ -383,7 +417,287 @@ def randomXORAgreementMaker(numInputs, numParams, threshold):
 #        t = time.time()        
         inputsToAgreementGate = [xorMap(inputs, i) for i in xorMapList]
         result = agreement(inputsToAgreementGate, params)
-#        print time.time()-t
         return result
         
     return randomXORAgreement
+    
+def xorSubsetFuncMaker(subset):
+    def xorSubset(inputs):
+        return xorMap(inputs, subset)
+    
+    return xorSubset        
+    
+def allXORSubsetFuncMaker(numInputs, setOfSubsets):
+    returnList = []
+        
+    for subset in setOfSubsets:  
+              
+        returnList.append(xorSubsetFuncMaker(subset))         
+                
+    return returnList
+    
+def subsetMultiplyFuncMaker(subset):
+    def multSubset(inputs):
+        return product(listMap(inputs, subset))
+        
+    return multSubset
+    
+def allMultSubsetFuncMaker(numInputs, setOfSubsets):
+    returnList = []
+        
+    for subset in setOfSubsets:  
+              
+        returnList.append(subsetMultiplyFuncMaker(subset))         
+                
+    return returnList
+        
+def getRawMnistData():
+    f = gzip.open('../data/mnist.pkl.gz', 'rb')
+    rawTrainingData, rawValidationData, rawTestData = cPickle.load(f)
+    f.close()
+    
+    return (rawTrainingData, rawValidationData, rawTestData)
+    
+def makeTruthTable(numInputs, listOfOutputs):
+    assert len(listOfOutputs) == 2**numInputs
+    
+    trainingSet = []
+    
+    allInputs = allListsOfSizeX(numInputs)
+    
+    for i, inp in enumerate(allInputs):
+        trainingSet.append([inp, [listOfOutputs[i]]])                  
+        
+    return trainingSet
+
+def processMnistData(rawTrainingData, rawValidationData, rawTestData):
+    
+    trainingData = []
+    for i in range(len(rawTrainingData[0])):
+        trainingData.append([rawTrainingData[0][i], rawTrainingData[1][i]])
+        
+    validationData = []
+    for i in range(len(rawValidationData[0])):
+        validationData.append([rawValidationData[0][i], rawValidationData[1][i]])
+        
+    testData = []
+    for i in range(len(rawTestData[0])):
+        testData.append([rawTestData[0][i], rawTestData[1][i]])
+    
+    return (trainingData, validationData, testData)
+    
+def basicFuncMaker(numInputs, index):
+    def basicFunc(l):
+        return l[index]
+        
+    return basicFunc
+        
+# Makes a family of functions that are just f_i(\vec{x}) = x_i      
+# In other words, just take the i^th input. The simplest family of functions
+# you could ask for!  
+def basicFuncFamilyMaker(numInputs):        
+    return [basicFuncMaker(numInputs, i) for i in range(numInputs)]    
+
+# Assume the function is linear. As a function of the coeffs, what would the 
+# sum-product for two different functions be?    
+def linearFuncSumTSMakerLargeTS(trainingSet, numInputs):
+    runningSum = np.zeros((numInputs, numInputs))
+    
+    for dataPoint in trainingSet:
+        inputs = dataPoint[0]
+        
+        runningSum += np.outer(np.array(inputs), np.array(inputs))
+        
+    for i in range(numInputs):
+        for j in range(numInputs):
+            print runningSum[i][j]
+    
+    def computeSumAnswersOverTS(coeffs1, coeffs2):
+        return sum(sum(np.multiply(np.outer(coeffs1, coeffs2), runningSum)))
+        
+    return computeSumAnswersOverTS    
+
+# Find the best set of linear orthogonal functions you can!    
+def findBestLinearOrthogFuncsLargeTSOld(trainingSet):
+    numInputs = len(trainingSet[0][0])
+    
+    computeSumAnswersOverTS = linearFuncSumTSMaker(trainingSet, numInputs)
+    
+    def computeFitnessOfCoeffs(coeffs):
+        runningSum = 0
+        
+        coeffArray = np.reshape(coeffs, (numInputs, numInputs))
+        
+        for i in range(len(coeffArray)):
+            for j in range(len(coeffArray)):
+                if i != j:                                        
+                    runningSum += computeSumAnswersOverTS(coeffArray[i], 
+                        coeffArray[j]) ** 2
+                        
+            print i
+                        
+        print runningSum
+                        
+        return runningSum                
+        
+    # matrix of random values between -1 and 1
+    initMatrix = 2*(0.5*np.ones((numInputs,numInputs))-np.random.rand(numInputs,numInputs))
+    
+    # gradient descent
+    print opt.minimize(computeFitnessOfCoeffs, initMatrix, method="BFGS", 
+        options={'disp':True})
+    
+def findBestLinearOrthogFuncs(rawTrainingData):
+    numInputs = len(rawTrainingData[0])
+    # We need to compute CX^T XC^T    
+    
+#    print rawTrainingData
+#    print np.transpose(rawTrainingData)
+    
+    middleMatrix = np.dot(np.transpose(rawTrainingData), rawTrainingData)
+    # middleMatrix is X^T X
+    
+    def computeFitnessOfCoeffs(coeffs):
+        coeffArray = np.reshape(coeffs, (numInputs, numInputs))
+        
+        result = sum(sum((np.dot(np.dot(coeffArray, middleMatrix), 
+            np.transpose(coeffArray)) - np.identity(numInputs))))
+            
+        print result
+        
+        return result
+            
+    # matrix of random values between -1 and 1
+    initMatrix = 2*(0.5*np.ones((numInputs,numInputs))-np.random.rand(numInputs,numInputs))
+    
+    # gradient descent
+    print opt.minimize(computeFitnessOfCoeffs, initMatrix, method="BFGS", 
+        options={'disp':True})      
+
+# Gets rid of all pixels that only ever have 0.0 in the training set
+# (this avoids a singular matrix later)
+def removeDudsFromTrainingData(rawTrainingData):
+    # This could probably be made faster...
+    rawTrainingData = np.transpose(rawTrainingData)
+    
+    prunedTrainingData = []
+    
+    for pixelHistory in rawTrainingData:
+        
+        if sum(pixelHistory):
+            prunedTrainingData.append(pixelHistory)
+        
+    return np.transpose(np.array(prunedTrainingData))
+        
+# TRY ITERATIVE SOLUTION!!
+def findBestLinearOrthogFuncsIter(prunedTrainingData):
+    
+    numInputs = len(prunedTrainingData[0])
+    
+#    shiftedTrainingData = rawTrainingData - 0.5*np.ones((len(rawTrainingData), numInputs))
+    
+    
+    middleMatrix = np.dot(np.transpose(prunedTrainingData), prunedTrainingData)
+    # middleMatrix is X^T X
+    
+    w, v = np.linalg.eig(middleMatrix) 
+    
+    print w
+    print v
+    
+    print np.dot(np.transpose(v), v)
+    
+    print "o", middleMatrix
+    
+    print "p", np.dot(np.dot(v, np.diag(w)), np.transpose(v))
+    
+    print "r", np.allclose(np.dot(np.dot(v, np.diag(w)), np.transpose(v)), middleMatrix)
+    
+    print "q", np.dot(np.dot(np.transpose(v), middleMatrix), v)
+        
+    checkThatFuncsAreOrthogonal(prunedTrainingData, np.transpose(v))
+    
+    raise
+    
+    print "middleMatrix computed"
+    
+    # C <- C^T^-1 (X^T X)^-1
+#    for i in range(784):
+#        printString = ""
+#        for j in range(784):
+#            printString += "|" + str(middleMatrix[i][j])
+#        print printString
+    
+    middleMatrixInv = np.linalg.inv(middleMatrix)
+    
+    # matrix of random values between -1 and 1    
+    coeffArray = 2*(0.5*np.ones((numInputs,numInputs))-np.random.rand(numInputs,numInputs))
+    
+    notDoneYet = True
+    while notDoneYet:
+        for _ in range(1):
+            coeffArray = np.dot(np.linalg.inv(coeffArray.transpose()), middleMatrixInv)
+#            coeffArray = np.dot(middleMatrix, coeffArray.transpose())
+            
+#            for i in range(784):
+#                printString = ""
+#                for j in range(784):
+#                    printString += "|" + str(coeffArray[i][j])
+#                print printString
+            
+#            coeffArray = np.linalg.inv(coeffArray)
+
+        
+        currentApproxOfId = np.dot(np.dot(coeffArray, middleMatrix), 
+            coeffArray.transpose())
+        
+        distanceFromId = sum(sum(np.multiply(currentApproxOfId, currentApproxOfId)))
+        print distanceFromId
+        
+        if distanceFromId < 0.01:         
+            notDoneYet = False
+            
+    return coeffArray
+    
+def checkThatLinearFuncsAreOrthogonal(rawTrainingData, svdMat):
+    for _ in range(100):
+        numInputs = len(svdMat)
+        
+        randomEntry1 = random.randint(0, numInputs-1)
+        randomEntry2 = random.randint(0, numInputs-1)
+        
+        if randomEntry1 != randomEntry2:
+            firstFunc = svdMat[randomEntry1]
+            secondFunc = svdMat[randomEntry2]
+            
+       #     firstFunc = np.array([random.random() for _ in range(numInputs)])
+            
+            runningSum = 0
+            for i in rawTrainingData:
+ #               print "hi", np.dot(firstFunc,i), np.dot(secondFunc,i)
+                runningSum += np.dot(firstFunc,i)*np.dot(secondFunc,i)
+                
+            print runningSum
+        
+def checkThatFuncsAreOrthogonal(rawTrainingData, listOfFuncs):
+    for _ in range(100):
+        numFuncs = len(listOfFuncs)        
+        
+        randomFuncIndex1 = random.randint(0, numFuncs-1)
+        randomFuncIndex2 = random.randint(0, numFuncs-1)
+        
+        if randomFuncIndex1 != randomFuncIndex2:
+            func1 = listOfFuncs[randomFuncIndex1]
+            func2 = listOfFuncs[randomFuncIndex2]
+            
+            runningSum = 0
+            
+            for i in rawTrainingData:
+                runningSum += func1(i)*func2(i)
+                
+            print runningSum 
+            
+def justThatInputMaker(i):
+    def justThatInputs(inputs):
+        return inputs[i]
+    return justThatInputs

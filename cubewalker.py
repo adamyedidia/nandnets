@@ -17,7 +17,7 @@ class CubeWalker:
     def __init__(self, f, initialParams):
         self.f = f
         self.params = initialParams
-        
+			
     def evaluate(self, inputs, params=None):
         if params == None:
             params = self.params
@@ -26,7 +26,7 @@ class CubeWalker:
         
     def testParamAssignmentOnInput(self, inputs, outputs, outputIndex, paramAssignment):
         result = self.evaluate(inputs, paramAssignment)
-        
+                        
         if outputs[outputIndex] == result[outputIndex]:
             return 1
             
@@ -57,14 +57,44 @@ class CubeWalker:
                 
         return score
         
-    def walkOneStep(self, trainingSet):
+    def scoreParamsImportanceWeighted(self, trainingSet, paramAssignment):
+        numOutputs = len(trainingSet[0][1])
+        
+        totalSwaps = 0.
+        goodSwaps = 0.
+        
+        for dataPoint in trainingSet:
+            inputs = dataPoint[0]
+            outputs = dataPoint[1]
+            
+            for outputIndex in range(numOutputs):
+                # This is inefficient by a factor of 2!
+                currentPerformance = self.testParamAssignmentOnInput(inputs, outputs, outputIndex, self.params)
+                alternatePerformance = self.testParamAssignmentOnInput(inputs, outputs, outputIndex, paramAssignment)
+                
+                if currentPerformance != alternatePerformance:
+                    totalSwaps += 1.
+                    
+                    if alternatePerformance == 1:
+                        goodSwaps += 1.
+                        
+        if totalSwaps == 0.:
+            return 0.5                
+                        
+        return goodSwaps / totalSwaps
+                    
+        
+    def walkOneStep(self, trainingSet, importanceWeighted=False):
         listOfDeviateParams = self.generateDeviationsFromParams()
         
         bestScore = -1
         bestParams = None
         
         for deviateParams in listOfDeviateParams:
-            score = self.scoreParams(trainingSet, deviateParams)
+            if importanceWeighted:
+                score = self.scoreParamsImportanceWeighted(trainingSet, deviateParams)
+            else:
+                score = self.scoreParams(trainingSet, deviateParams)
             
             if score > bestScore:
                 bestScore = score
@@ -73,7 +103,7 @@ class CubeWalker:
         self.params = bestParams
         return bestScore
     
-    def train(self, trainingSet, verbose=False, solution=None):
+    def train(self, trainingSet, importanceWeighted=False, verbose=False, solution=None):
         seenParamsBefore = False
         stepCounter = 0
         
@@ -87,13 +117,13 @@ class CubeWalker:
             pront("Params: " + str(self.params))
                     
         while not (seenParamsBefore and scoreDiff >= 0):
-            score = self.walkOneStep(trainingSet)
+            score = self.walkOneStep(trainingSet, importanceWeighted)
             stepCounter += 1
             pront("Taken " + str(stepCounter) + " step" + ("s"*(stepCounter != 1)) + ".")
             if verbose:
                 pront("Params: " + str(self.params))
                 
-                printTruthTable(self.f, len(trainingSet[0][0]), self.params, solution)
+#                printTruthTable(self.f, len(trainingSet[0][0]), self.params, solution)
             pront("Score: " + str(score))
             pront("")
             
@@ -146,3 +176,4 @@ class CubeWalker:
             pront("Got " + str(alwaysZeroCounter) + " out of " + str(overallCounter) + " correct.")
 				
         return correctnessCounter / overallCounter             
+    

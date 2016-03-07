@@ -1,10 +1,25 @@
 from funcs import *
 from truthtableprinter import *
 import matplotlib.pyplot as p
+from quicksampler import QuickSampler
+import random
 
+quickSamplerTest = True
+pmAssemblerTest = False
+mfscTest = False
+mfsTest = False
+linearFuncSumDigits = False
+linearFitDigits = False
+funcSumTest = False
+majoritarianHardStudy = False
+majoritarianSelfLearn = False
+majoritarianCompression = False
+majoritarianAllFuncs = False
+majoritarianAllXOR = False
 memoryMachineCompression = False
 xorCompressionCW = False
-xorCompression = True
+xorCompression = False
+majoritarianxorCompression = False
 xorAgreementCW = False
 xorAgreement = False
 softRandomAgreement = False
@@ -15,6 +30,7 @@ agreementSquareTest = False
 simpleAgreement = False
 hybridRecoveryTestCW = False
 hybridRecoveryTestSample = False
+randomNandRecoveryTestCWImportance = False
 randomNandRecoveryTestCW = False        
 randomNandRecoveryTestSample = False        
 bigNandTest = False
@@ -24,7 +40,264 @@ tinyGateTestCW = False
 trivialGateTest = False   
 trivialGateTestCW = False    
 compressionTest = False    
+compressionTestCWImportanceWeighted = False
 compressionTestCW = False
+
+if quickSamplerTest:
+    lookback = 10
+    rangeOfSearch = 5000
+        
+    text = open("/Users/adamyedidia/compression/declarationbits.txt").read()
+    
+    def getSample():
+        start = random.randint(0, rangeOfSearch-1)
+        end = start + 300
+        
+        return [[convertToOneMinusOne(int(i)) for i in text[start:end]],
+                convertToOneMinusOne(text[end])]
+                
+    listOfFuncs = []
+    
+    for i in range(lookback):
+        listOfFuncs.append(justThatInputMaker(i))
+                
+    qs = QuickSampler(getSample, getSample, listOfFuncs)
+    
+    qs.test(1000)
+        
+
+if pmAssemblerTest:
+    n = 10
+    trainingSet = generateRandomTruthTable(n, 1)
+
+#    trainingSet = [[[0.,0.], [1.]],
+#                   [[0.,1.], [0.]],
+#                   [[1.,0.], [0.]],
+#                   [[1.,1.], [0.]]]
+
+#    for dataPoint in trainingSet:
+#        print dataPoint
+    
+    pma = PMAssembler()
+    numGates = pma.train(trainingSet, 1)    
+        
+    testSet = trainingSet
+    pma.test(testSet)
+    
+    print "Used", numGates, "gates."
+    print "Total gate cost:", pma.totalCost
+    
+    
+if mfscTest:
+    
+    trainingSet, _, testSet = getRawMnistData()
+    
+#    trainingSet = (np.reshape(np.arange(9), (3, 3)), np.arange(3))
+
+#    n = 3
+#    numDataPoints = 3
+#    numOptions = 2
+    
+#    trainingSet = (np.reshape(np.array([random.random() for _ \
+#        in range(n*numDataPoints)]), (numDataPoints, n)), \
+#        np.array([random.randint(0, numOptions-1) for _ in range(numDataPoints)]))
+    
+#    testSet = trainingSet
+    
+    mfsc = MatFuncSumClique(10, lambda x: x)
+    mfsc.train(trainingSet)
+    mfsc.test(testSet, True)
+
+if mfsTest:
+    
+    n = 4
+    numDataPoints = 3
+    
+    trainingSet = (np.reshape(np.array([random.random() for _ \
+        in range(n*numDataPoints)]), (numDataPoints, n)), \
+        np.array([random.random() for _ in range(numDataPoints)]))
+    
+    testSet = trainingSet
+    
+    mfs = MatFuncSum()
+    mfs.train(trainingSet)
+    mfs.test(testSet)
+
+if linearFuncSumDigits:
+    rawTrainingData, _, rawTestData = getRawMnistData()
+
+#    rawTrainingData = (np.array([[3,4], [1,-4], [2,0]]), "hi")
+ #   rawTrainingData = (np.reshape(np.arange(200), (40, 5)), "hi")
+    
+#    print len(rawTrainingData[0])   
+        
+#    trainingSet = trainingData[:5000] 
+#    testSet = testData[:5000]
+ 
+#    trainingSet = [[[3,4], [5]],
+#                    [[1,-4], [3]],
+#                    [[2, 0], [1]]]
+
+
+    
+    print "Done getting data"
+    
+#    prunedTrainingData = removeDudsFromTrainingData(rawTrainingData[0])
+    
+#    print "data pruned"
+    
+    findBestLinearOrthogFuncsIter(rawTrainingData[0])
+    
+#    n = 784
+    
+#    f = FuncSumClique(basicFuncFamilyMaker(n), 10, lambda x: x)
+    
+#    print "Beginning training"
+#    f.train(trainingSet)
+#    print "Done training, beginning testing"
+#    f.test(testSet)
+#    print "Done"
+            
+
+if linearFitDigits:
+    trainingData, _, testData = getMnistData()
+        
+    trainingSet = trainingData[:50000] 
+    testSet = testData[:50000]
+    
+    print "Done getting data"
+    
+    
+    n = 784
+    
+    f = FuncSumClique(basicFuncFamilyMaker(n), 10, lambda x: x)
+    
+    print "Beginning training"
+    f.train(trainingSet)
+    print "Done training, beginning testing"
+    f.test(testSet)
+    print "Done"
+        
+
+if funcSumTest:
+    n = 3
+    trainingSet = [
+        [[-1.,-1.,-1.], [0.32]],
+        [[-1.,-1., 1.], [-5.]],
+        [[-1., 1.,-1.], [9.2]],
+        [[-1., 1., 1.], [1.2]],
+        [[ 1.,-1.,-1.], [-3.4]],
+        [[ 1.,-1., 1.], [0.21]],
+        [[ 1., 1.,-1.], [9.4]],
+        [[ 1., 1., 1.], [-2.2]]
+    ]
+    
+    testSet = trainingSet
+    
+    f = FuncSum(allMultSubsetFuncMaker(n, allListsOfSizeX(n)[:]))
+    
+    f.train(trainingSet)
+    f.test(testSet, True)
+
+if majoritarianHardStudy:
+    n = 3
+    
+    m = Majoritarian(allXORSubsetFuncMaker(n, allListsOfSizeX(n)))
+    
+    trainingSet = generateRandomTruthTable(n, 1)
+
+    print trainingSet
+        
+#    for dataPoint in trainingSet:
+#        print dataPoint  
+    
+    testSet = trainingSet
+        
+    m.train(trainingSet, False)
+    m.test(testSet, False)
+    
+    
+    
+#    m = Majoritarian()
+
+if majoritarianSelfLearn:
+    n = 8
+
+    m = Majoritarian(allXORSubsetFuncMaker(n, allSubsetsOfSize(n, 2)))
+#    m.params = [random.randint(-4, 4) for _ in range(len(m.functionList))]
+    m.params = [random.random() for _ in range(len(m.functionList))]
+    trainingSet = m.generateTruthTable(n, True)
+#    print m.params
+
+#    m = Majoritarian(allXORSubsetFuncMaker(n, allListsOfSizeX(n)))
+#    m = Majoritarian(allXORSubsetFuncMaker(n, allSubsetsOfSize(n, 2)))
+#    trainingSet = generateRandomTruthTable(n, 1, False, True)    
+    
+    testSet = trainingSet
+    
+    m.train(trainingSet)
+    m.test(testSet, True, False, True, True)
+    
+
+if majoritarianCompression:
+    patternSize = 10
+        
+    trainingSetSize = 1000
+    testSetSize = 1000
+                
+#    m = Majoritarian(allXORSubsetFuncMaker(patternSize, allSubsetsOfSize(patternSize, 2)))
+    m = Majoritarian(allXORSubsetFuncMaker(patternSize, allListsOfSizeX(patternSize)))
+    
+    compressionData = getCompressionData("../../compression/declarationbits.txt",
+        patternSize)
+        
+    trainingSet = compressionData[:trainingSetSize]
+    testSet = compressionData[trainingSetSize:testSetSize+trainingSetSize]
+
+#    trainingSet = generateRandomTruthTable(n, 1)
+            
+    m.train(trainingSet)
+    m.test(testSet, True, False)
+
+if majoritarianAllFuncs:
+    n = 4
+    
+    m = Majoritarian(allXORSubsetFuncMaker(n, allListsOfSizeX(n))[1:])
+    
+    m.enumerateAllPossibleParams(n)
+
+if majoritarianAllXOR:
+    n = 4
+                
+    m = Majoritarian(allXORSubsetFuncMaker(n, allListsOfSizeX(n))[1:])
+#    m = Majoritarian(allXORSubsetFuncMaker(n, allSubsetsOfSize(n, 2)))
+    
+#    random16list = [0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
+    random16list = [0.,1.,1.,0.,0.,0.,0.,0.,0.,0.,
+        1.,1.,1.,0.,0.,0.]
+    
+#    random16list = [1.0*(random.random() > 0.5) for _ in range(16)]
+    
+    print random16list
+    
+#    trainingSet = makeTruthTable(n, [1.,1.,1.,0.,0.,0.,0.,0.,0.,0.,
+#        1.,1.,1.,0.,0.,0.])
+    
+    trainingSet = makeTruthTable(n, random16list*1)
+#    trainingSet = generateRandomTruthTable(n, 1)
+    for dataPoint in trainingSet:
+        print dataPoint  
+    
+    testSet = trainingSet
+        
+#    m.train(trainingSet)
+#    m.test(testSet, True, False)
+
+#    m.train(trainingSet)
+    m.perfectTrain(trainingSet)
+    print m.params
+    
+    m.test(testSet, True, True)
 
 if memoryMachineCompression:
     
@@ -335,10 +608,10 @@ if hybridRecoveryTestSample:
     testSet = trainingSet
     s.train(trainingSet, 5, 2000, True)
     s.test(testSet, True, True)        
-        
-if randomNandRecoveryTestCW:        
-    n = 5
-    internals = 3
+
+if randomNandRecoveryTestCWImportance:
+    n = 8
+    internals = 8
     outputs = 1
     
     nandDag = nandDagFunctionMaker(n, internals, outputs)
@@ -346,17 +619,35 @@ if randomNandRecoveryTestCW:
     
     s = CubeWalker(nandDag, [1.0*(random.random()>0.5) for _ in range(numParams)])
     
-    trueFunc = randomInstanceGen(nandDag, numParams)
+    trueFunc, trueParams = randomInstanceGen(nandDag, numParams)
     trainingSet = generateFullTruthTable(trueFunc, n)
     
     testSet = trainingSet
     
-    s.train(trainingSet, True)
+    s.train(trainingSet, True, True)
+    s.test(testSet, True, True)          
+        
+if randomNandRecoveryTestCW:        
+    n = 8
+    internals = 8
+    outputs = 1
+    
+    nandDag = nandDagFunctionMaker(n, internals, outputs)
+    numParams = numParamCalculator(n, internals, outputs)
+    
+    s = CubeWalker(nandDag, [1.0*(random.random()>0.5) for _ in range(numParams)])
+    
+    trueFunc, trueParams = randomInstanceGen(nandDag, numParams)
+    trainingSet = generateFullTruthTable(trueFunc, n)
+    
+    testSet = trainingSet
+    
+    s.train(trainingSet, False, True)
     s.test(testSet, True, True)        
                 
 if randomNandRecoveryTestSample:        
-    n = 5
-    internals = 3
+    n = 8
+    internals = 8
     outputs = 1
     
     nandDag = nandDagFunctionMaker(n, internals, outputs)
@@ -503,6 +794,27 @@ if compressionTest:
     s.train(trainingSet, 1, 500)
     s.test(testSet, True, True)   
     
+if compressionTestCWImportanceWeighted:
+    patternSize = 15
+    numInternals = 15
+    
+    trainingSetSize = 1000
+    testSetSize = 1000
+    
+    nandDag = nandDagFunctionMaker(patternSize, numInternals, 1)
+    numParams = numParamCalculator(patternSize, numInternals, 1)
+        
+    c = CubeWalker(nandDag, [1.0 * (random.random() < 0.1) for _ in range(numParams)])
+    
+    compressionData = getCompressionData("../../compression/declarationbits.txt",
+        patternSize)
+        
+    trainingSet = compressionData[:trainingSetSize]
+    testSet = compressionData[trainingSetSize:testSetSize+trainingSetSize]
+        
+    c.train(trainingSet, True, True)
+    c.test(testSet, True, True)
+    
 if compressionTestCW:
     
     patternSize = 15
@@ -522,5 +834,5 @@ if compressionTestCW:
     trainingSet = compressionData[:trainingSetSize]
     testSet = compressionData[trainingSetSize:testSetSize+trainingSetSize]
         
-    c.train(trainingSet, False)
+    c.train(trainingSet, False, True)
     c.test(testSet, True, True)  

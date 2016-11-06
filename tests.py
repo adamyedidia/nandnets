@@ -4,6 +4,7 @@ import matplotlib.pyplot as p
 from quicksampler import QuickSampler
 import random
 
+gateTest = True
 quickSamplerTest = False
 pmAssemblerTest = False
 mfscTest = False
@@ -31,7 +32,7 @@ simpleAgreement = False
 hybridRecoveryTestCW = False
 hybridRecoveryTestSample = False
 randomNandRecoveryTestCWImportance = False
-randomNandRecoveryTestCW = True
+randomNandRecoveryTestCW = False
 randomNandRecoveryTestSample = False
 bigNandTest = False
 tinyGateTest = False
@@ -42,6 +43,15 @@ trivialGateTestCW = False
 compressionTest = False
 compressionTestCWImportanceWeighted = False
 compressionTestCW = False
+
+if gateTest:
+    maj3 = gateFuncMaker(3, [[[1,1,0,0]], [[1,0,0],[1,1,0]], [[0,0],[1,0],[1,1]], [[0],[0],[1],[1]]])
+
+#    print maj3([0,0,0], [1,0,1])
+
+    nand3 = gateFuncMaker(3, [[[0,0,0,0]], [[1,1,1],[0,0,0]], [[1,1],[1,1],[0,0]], [[1],[1],[1],[0]]])
+
+    print nand3([1,1,1], [0,0,0])
 
 if quickSamplerTest:
     lookback = 14

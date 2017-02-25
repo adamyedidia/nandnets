@@ -1,5 +1,5 @@
 import random
-from funcs import gatePileMetaMakerMaker, allListsOfSizeX
+from funcs import gatePileMetaMakerMaker, allListsOfSizeX, simpleGateFuncMaker
 from segmented_train import segmentedTrain, exhaustiveSearch, aggressiveSearch
 
 def pront(x):
@@ -136,8 +136,15 @@ def majorityChallenger3(n):
 def randomGate(n):
     return [[[1*(random.random() < 0.5) for k in range(n+1-i)] for j in range(i+1)] for i in range(n+1)]
 
+def simpleRandomGate(n):
+    return [[1*(random.random() < 0.5) for _ in range(4)], \
+        [1*(random.random() < 0.5) for _ in range(n+1)]]
+
 def zeroGate(n):
     return [[[0 for k in range(n+1-i)] for j in range(i+1)] for i in range(n+1)]
+
+def simpleZeroGate(n):
+    return [[0 for _ in range(4)], [0 for _ in range(n+1)]]
 
 def measureGateError(gatePileMaker, funcMetaSet):
     totalError = 0
@@ -150,32 +157,36 @@ def measureGateError(gatePileMaker, funcMetaSet):
 
     return totalError/float(i+1)
 
-def findBestGate(trainingMetaSet, gatePileMetaMaker, initialGateMetaParamMatrix):
+def findBestGate(trainingMetaSet, dimension, gatePileMetaMaker, initialGateMetaParamMatrix):
     gateParamMatrix = initialGateMetaParamMatrix[:]
 
     pront("Initial gate guess: " + str(gateParamMatrix))
 
-    segmentedTrain(gateParamMatrix, 3, gatePileMetaMaker, trainingMetaSet, \
+    segmentedTrain(gateParamMatrix, dimension, gatePileMetaMaker, trainingMetaSet, \
         measureGateError, True)
 
     return gateParamMatrix
 
-def findBestGateAggressive(trainingMetaSet, gatePileMetaMaker, initialGateMetaParamMatrix):
+def findBestGateAggressive(trainingMetaSet, dimension, gatePileMetaMaker, \
+    initialGateMetaParamMatrix):
+
     gateParamMatrix = initialGateMetaParamMatrix[:]
 
     pront("Initial gate guess: " + str(gateParamMatrix))
 
-    aggressiveSearch(gateParamMatrix, 3, gatePileMetaMaker, trainingMetaSet, \
+    aggressiveSearch(gateParamMatrix, dimension, gatePileMetaMaker, trainingMetaSet, \
         measureGateError, True)
 
     return gateParamMatrix
 
-def findBestGateExhaustive(trainingMetaSet, gatePileMetaMaker, initialGateMetaParamMatrix):
+def findBestGateExhaustive(trainingMetaSet, dimension, gatePileMetaMaker, \
+    initialGateMetaParamMatrix):
+
     gateParamMatrix = initialGateMetaParamMatrix[:]
 
     pront("Initial gate guess: " + str(gateParamMatrix))
 
-    exhaustiveSearch(gateParamMatrix, 3, gatePileMetaMaker, trainingMetaSet, \
+    exhaustiveSearch(gateParamMatrix, dimension, gatePileMetaMaker, trainingMetaSet, \
         measureGateError, True)
 
     return gateParamMatrix
@@ -333,9 +344,20 @@ def gateContest(n, gate1, gate2, numFuncs, samplesPerFunc):
     else:
         pront("Tie match!")
 
+#majorityGate = simpleGateFuncMaker(3, [[1,0,0,1], [0,0,1,1]])
+#print majorityGate([0,1,1], [0,1,0])
+
+#nandGate = simpleGateFuncMaker(3, [[1,1,0,1], [1,1,1,0]])
+#print nandGate([1,0,0],[0,0,0])
+
 n = 5
 
-goldenGate = majorityGateMetaParamMatrix(n)
+#print findBestGateExhaustive(generateAllTTs(n), 3, gatePileMetaMakerMaker(n, \
+#    simpleGateFuncMaker), simpleZeroGate(n))
+
+#n = 5
+
+#goldenGate = majorityGateMetaParamMatrix(n)
 
 #print arrangeGateChallenge(n, nandGateMetaParamMatrix(n), goldenGate, 1000,
 #    "all")
@@ -343,7 +365,7 @@ goldenGate = majorityGateMetaParamMatrix(n)
 #print gateContest(n, majorityChallenger3(n), majorityGateMetaParamMatrix(n), 1000, "all")
 
 print findBestGateAggressive(generateRandomFuncMetaSetFromGates(n, \
-    numFuncs=3000, samplesPerFunc="all"), gatePileMetaMakerMaker(n), randomGate(n))
+    numFuncs=3000, samplesPerFunc="all"), 3, gatePileMetaMakerMaker(n), randomGate(n))
 
 #print measureGateError(gatePileMetaMakerMaker(n)(nandGateMetaParamMatrix(n)), \
 #    generateAllTTs(n))

@@ -67,7 +67,7 @@ def por(inputs):
 
     return 0.0
 
-def allTuplesOfSizeX(x):
+def lesOfSizeX(x):
     if x == 0:
         return [tuple([])]
 
@@ -83,6 +83,9 @@ def bitwiseXor(arr1, arr2):
 
 def bitwiseNot(arr):
     return [1.0 - i for i in arr]
+
+def hammingDistance(arr1, arr2):
+    return sum(bitwiseXor(arr1, arr2))
 
 def makeOrthogonalSet(logSetSize):
     if logSetSize == 0:
@@ -747,6 +750,17 @@ def gateFuncMaker(n, metaParamMatrix):
         negativeOnes = sum([i*(1-j) for i, j in zip(inputs, params)])
 
         return metaParamMatrix[sum(params)][positiveOnes][negativeOnes]
+
+    return gate
+
+# metaParamMatrix is of the form [(input, param truth table), numOnesAction]
+def simpleGateFuncMaker(n, metaParamMatrix):
+    def gate(inputs, params):
+        def inputParamFunc(inp, param):
+            return metaParamMatrix[0][inp + 2*param]
+
+        numOnes = sum([inputParamFunc(i, p) for i, p in zip(inputs, params)])
+        return metaParamMatrix[1][numOnes]
 
     return gate
 

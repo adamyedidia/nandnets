@@ -106,6 +106,8 @@ def exhaustiveSearch(multiDimensionalArray, dimension, funcToTrain, \
 
     t = time.time()
 
+    numSteps = 0
+
     while True:
         pront("Took " + str(time.time() - t) + " seconds.")
         t = time.time()
@@ -122,6 +124,12 @@ def exhaustiveSearch(multiDimensionalArray, dimension, funcToTrain, \
             bestArray = deepCopy(multiDimensionalArray, dimension)
 
         if not incrementArray(multiDimensionalArray, dimension):
+            break
+
+        numSteps += 1
+
+        if numSteps == 256:
+            # KLUDGE!!
             break
 
     return bestArray
